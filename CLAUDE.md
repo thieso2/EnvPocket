@@ -53,3 +53,4 @@ Single-file Swift executable (`Sources/EnvPocket/main.swift`) that:
 - **Atomic Operations**: Delete-then-add pattern ensures consistency
 - **History Cascade**: Deleting a key removes all associated versions
 - **Error Handling**: Exits with status 1 on failure with descriptive messages
+- compile withoput warnings
