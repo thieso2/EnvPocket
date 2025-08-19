@@ -29,7 +29,7 @@
 import Foundation
 
 enum Command: String {
-    case save, get, delete, list, history
+    case save, get, delete, list, history, export, `import`
 }
 
 func usage() {
@@ -42,11 +42,15 @@ func usage() {
       envpocket delete <pattern> [-f]
       envpocket list
       envpocket history <key>
+      envpocket export <key> --password <password> [<output_file>]
+      envpocket import <key> <encrypted_file> --password <password>
     
     Notes:
       - For 'delete': supports wildcards (* and ?). Use -f to skip confirmation
       - For 'get': if output_file is omitted, uses the original filename
       - Use '-' as output_file to write to stdout
+      - For 'export': creates an encrypted file that can be shared with team members
+      - For 'import': decrypts and imports a file previously exported with 'export'
     """)
 }
 
@@ -129,6 +133,64 @@ func main() {
     case .history:
         guard args.count == 3 else { usage(); exit(1) }
         envPocket.showHistory(key: args[2])
+        
+    case .export:
+        if args.count == 5 && args[3] == "--password" {
+            // Export with default output: envpocket export <key> --password <password>
+            guard let encryptedData = envPocket.exportEncrypted(key: args[2], password: args[4]) else {
+                exit(1)
+            }
+            let outputFile = "\(args[2]).envpocket"
+            do {
+                try encryptedData.write(to: URL(fileURLWithPath: outputFile))
+                print("Encrypted file exported to '\(outputFile)'")
+                print("Share this file and password with your team to grant access")
+            } catch {
+                print("Error writing encrypted file: \(error)")
+                exit(1)
+            }
+        } else if args.count == 6 && args[3] == "--password" {
+            // Export with specified output: envpocket export <key> --password <password> <output_file>
+            guard let encryptedData = envPocket.exportEncrypted(key: args[2], password: args[4]) else {
+                exit(1)
+            }
+            let outputFile = args[5]
+            if outputFile == "-" {
+                // Write to stdout
+                FileHandle.standardOutput.write(encryptedData)
+            } else {
+                do {
+                    try encryptedData.write(to: URL(fileURLWithPath: outputFile))
+                    print("Encrypted file exported to '\(outputFile)'")
+                    print("Share this file and password with your team to grant access")
+                } catch {
+                    print("Error writing encrypted file: \(error)")
+                    exit(1)
+                }
+            }
+        } else {
+            usage()
+            exit(1)
+        }
+        
+    case .import:
+        guard args.count == 6 && args[4] == "--password" else {
+            usage()
+            exit(1)
+        }
+        
+        let key = args[2]
+        let filePath = args[3]
+        let password = args[5]
+        
+        guard let encryptedData = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else {
+            print("Error: Could not read encrypted file at \(filePath)")
+            exit(1)
+        }
+        
+        if !envPocket.importEncrypted(key: key, encryptedData: encryptedData, password: password) {
+            exit(1)
+        }
     }
 }
 

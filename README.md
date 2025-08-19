@@ -10,6 +10,7 @@ A secure command-line utility for macOS that stores environment files in the sys
 - **Simple CLI**: Intuitive commands for saving, retrieving, and managing stored files
 - **Atomic Operations**: Ensures data consistency during updates
 - **Clean Namespace**: All keychain entries are prefixed to avoid conflicts
+- **Team Sharing**: Export/import encrypted files for secure team collaboration
 
 ## Installation
 
@@ -114,6 +115,24 @@ Remove a file and all its versions from the keychain:
 envpocket delete myapp-prod
 ```
 
+### Export for Team Sharing
+
+Export an encrypted version of your environment file:
+
+```bash
+envpocket export myapp-prod --password "shared-team-secret"
+```
+
+This creates `myapp-prod.envpocket` that can be safely shared via Git, Slack, email, etc.
+
+### Import from Team Member
+
+Import an encrypted environment file shared by a team member:
+
+```bash
+envpocket import myapp-prod myapp-prod.envpocket --password "shared-team-secret"
+```
+
 ## Examples
 
 ### Managing Multiple Environment Files
@@ -159,6 +178,38 @@ done
 envpocket get backup-.env.production .env.production
 ```
 
+### Team Collaboration Workflow
+
+```bash
+# Team lead exports production environment
+envpocket export production-env --password "team-secret-2024"
+
+# Commit encrypted file to repository
+git add production-env.envpocket
+git commit -m "Update production environment configuration"
+git push
+
+# Team member pulls and imports
+git pull
+envpocket import production-env production-env.envpocket --password "team-secret-2024"
+
+# Now team member can use the environment
+envpocket get production-env .env
+```
+
+### Secure Environment Distribution
+
+```bash
+# Export multiple environments with the same password
+envpocket export app-dev --password "dev-team-pass" app-dev.envpocket
+envpocket export app-staging --password "dev-team-pass" app-staging.envpocket
+envpocket export app-prod --password "prod-team-pass" app-prod.envpocket
+
+# Different passwords for different security levels
+# Share dev/staging password with all developers
+# Share production password only with senior developers/DevOps
+```
+
 ## Security Considerations
 
 - **Keychain Access**: envpocket requires keychain access permissions on first use
@@ -166,6 +217,11 @@ envpocket get backup-.env.production .env.production
 - **Encrypted Storage**: Data is encrypted by macOS Keychain Services
 - **No Network Access**: All operations are local to your machine
 - **Password Protection**: Keychain may require authentication based on your security settings
+- **Team Sharing Security**: 
+  - Export/import uses AES-256-GCM encryption with PBKDF2 key derivation
+  - Passwords should be shared through secure channels (password managers, encrypted messaging)
+  - Each exported file includes a random salt for added security
+  - Version history is preserved during export/import
 
 ### Note: Keychain Isolation
 

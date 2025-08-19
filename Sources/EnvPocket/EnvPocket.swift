@@ -27,6 +27,8 @@
 //
 
 import Foundation
+import CryptoKit
+import CommonCrypto
 
 class EnvPocket {
     private let keychain: KeychainProtocol
@@ -412,6 +414,234 @@ class EnvPocket {
                 }
             }
             print("\nUse 'envpocket get \(key) --version <index> <output_file>' to retrieve a specific version")
+        }
+    }
+    
+    // MARK: - Encryption/Decryption for Team Sharing
+    
+    private func deriveKey(from password: String, salt: Data) -> SymmetricKey? {
+        guard let passwordData = password.data(using: .utf8) else { return nil }
+        
+        // Use PBKDF2 to derive a key from the password
+        let keyData = pbkdf2(password: passwordData, salt: salt, iterations: 100_000, keyLength: 32)
+        return SymmetricKey(data: keyData)
+    }
+    
+    private func pbkdf2(password: Data, salt: Data, iterations: Int, keyLength: Int) -> Data {
+        var derivedKey = Data(count: keyLength)
+        let result = derivedKey.withUnsafeMutableBytes { derivedKeyBytes in
+            password.withUnsafeBytes { passwordBytes in
+                salt.withUnsafeBytes { saltBytes in
+                    CCKeyDerivationPBKDF(
+                        CCPBKDFAlgorithm(kCCPBKDF2),
+                        passwordBytes.bindMemory(to: Int8.self).baseAddress!,
+                        password.count,
+                        saltBytes.bindMemory(to: UInt8.self).baseAddress!,
+                        salt.count,
+                        CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
+                        UInt32(iterations),
+                        derivedKeyBytes.bindMemory(to: UInt8.self).baseAddress!,
+                        keyLength
+                    )
+                }
+            }
+        }
+        guard result == kCCSuccess else {
+            return Data()
+        }
+        return derivedKey
+    }
+    
+    func exportEncrypted(key: String, password: String) -> Data? {
+        let account = prefixedKey(key)
+        let (data, attributes, status) = keychain.load(account: account)
+        
+        guard status == errSecSuccess, let data = data else {
+            print("Error: Key '\(key)' not found in keychain")
+            return nil
+        }
+        
+        // Generate a random salt
+        let salt = Data((0..<32).map { _ in UInt8.random(in: 0...255) })
+        
+        // Derive encryption key from password
+        guard let symmetricKey = deriveKey(from: password, salt: salt) else {
+            print("Error: Failed to derive encryption key")
+            return nil
+        }
+        
+        // Create metadata dictionary
+        var metadata: [String: Any] = ["key": key]
+        if let filePath = attributes?[kSecAttrLabel as String] as? String {
+            metadata["originalPath"] = filePath
+        }
+        if let comment = attributes?[kSecAttrComment as String] as? String {
+            metadata["lastModified"] = comment
+        }
+        
+        // Include history versions
+        let historyItems = getHistoryForKey(key)
+        if !historyItems.isEmpty {
+            var historyData: [[String: Any]] = []
+            for historyAccount in historyItems {
+                let (histData, histAttrs, histStatus) = keychain.load(account: historyAccount)
+                if histStatus == errSecSuccess, let histData = histData {
+                    var histEntry: [String: Any] = ["data": histData.base64EncodedString()]
+                    if let histPath = histAttrs?[kSecAttrLabel as String] as? String {
+                        histEntry["originalPath"] = histPath
+                    }
+                    // Extract timestamp from account name
+                    let timestampStr = String(historyAccount.dropFirst((historyPrefix + key + ":").count))
+                    histEntry["timestamp"] = timestampStr
+                    historyData.append(histEntry)
+                }
+            }
+            metadata["history"] = historyData
+        }
+        
+        // Combine file data and metadata
+        let exportData: [String: Any] = [
+            "data": data.base64EncodedString(),
+            "metadata": metadata
+        ]
+        
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: exportData, options: .prettyPrinted) else {
+            print("Error: Failed to serialize export data")
+            return nil
+        }
+        
+        // Encrypt the JSON data
+        do {
+            let sealedBox = try AES.GCM.seal(jsonData, using: symmetricKey)
+            
+            // Combine salt + nonce + ciphertext + tag for export
+            var exportedData = Data()
+            exportedData.append(salt)
+            exportedData.append(contentsOf: sealedBox.nonce)
+            exportedData.append(contentsOf: sealedBox.ciphertext)
+            exportedData.append(contentsOf: sealedBox.tag)
+            
+            // Add a magic header to identify the file format
+            let header = "ENVPOCKET_V1".data(using: .utf8)!
+            var finalData = Data()
+            finalData.append(header)
+            finalData.append(exportedData)
+            
+            return finalData
+        } catch {
+            print("Error: Encryption failed - \(error)")
+            return nil
+        }
+    }
+    
+    func importEncrypted(key: String, encryptedData: Data, password: String) -> Bool {
+        // Check for magic header
+        let headerLength = "ENVPOCKET_V1".count
+        guard encryptedData.count > headerLength else {
+            print("Error: Invalid encrypted file format")
+            return false
+        }
+        
+        let header = String(data: encryptedData.prefix(headerLength), encoding: .utf8)
+        guard header == "ENVPOCKET_V1" else {
+            print("Error: Invalid file header. This doesn't appear to be an envpocket export file.")
+            return false
+        }
+        
+        // Remove header
+        let dataWithoutHeader = encryptedData.dropFirst(headerLength)
+        
+        // Extract components
+        guard dataWithoutHeader.count > 32 + 12 else { // salt + nonce minimum
+            print("Error: Corrupted encrypted file")
+            return false
+        }
+        
+        let salt = dataWithoutHeader.prefix(32)
+        let nonceData = dataWithoutHeader.dropFirst(32).prefix(12)
+        let remainder = dataWithoutHeader.dropFirst(32 + 12)
+        
+        guard remainder.count > 16 else { // Need at least tag size
+            print("Error: Corrupted encrypted file")
+            return false
+        }
+        
+        let ciphertext = remainder.dropLast(16)
+        let tag = remainder.suffix(16)
+        
+        // Derive decryption key
+        guard let symmetricKey = deriveKey(from: password, salt: salt) else {
+            print("Error: Failed to derive decryption key")
+            return false
+        }
+        
+        // Decrypt
+        do {
+            let nonce = try AES.GCM.Nonce(data: nonceData)
+            let sealedBox = try AES.GCM.SealedBox(nonce: nonce, ciphertext: ciphertext, tag: tag)
+            let decryptedData = try AES.GCM.open(sealedBox, using: symmetricKey)
+            
+            // Parse JSON
+            guard let exportData = try? JSONSerialization.jsonObject(with: decryptedData) as? [String: Any],
+                  let dataString = exportData["data"] as? String,
+                  let fileData = Data(base64Encoded: dataString),
+                  let metadata = exportData["metadata"] as? [String: Any] else {
+                print("Error: Failed to parse decrypted data")
+                return false
+            }
+            
+            // Extract metadata
+            let originalPath = metadata["originalPath"] as? String
+            let lastModified = metadata["lastModified"] as? String
+            
+            // Save current version to keychain
+            let account = prefixedKey(key)
+            let status = keychain.save(
+                account: account,
+                data: fileData,
+                label: originalPath,
+                comment: lastModified
+            )
+            
+            guard status == errSecSuccess else {
+                print("Error: Failed to save to keychain - \(status)")
+                return false
+            }
+            
+            // Import history if present
+            if let history = metadata["history"] as? [[String: Any]] {
+                var importedHistory = 0
+                for histEntry in history {
+                    if let histDataString = histEntry["data"] as? String,
+                       let histData = Data(base64Encoded: histDataString),
+                       let timestamp = histEntry["timestamp"] as? String {
+                        
+                        let historyAccount = historyPrefix + key + ":" + timestamp
+                        let histPath = histEntry["originalPath"] as? String
+                        
+                        let histStatus = keychain.save(
+                            account: historyAccount,
+                            data: histData,
+                            label: histPath,
+                            comment: nil
+                        )
+                        
+                        if histStatus == errSecSuccess {
+                            importedHistory += 1
+                        }
+                    }
+                }
+                
+                print("Successfully imported '\(key)' with \(importedHistory) history version\(importedHistory == 1 ? "" : "s")")
+            } else {
+                print("Successfully imported '\(key)'")
+            }
+            
+            return true
+            
+        } catch {
+            print("Error: Decryption failed - incorrect password or corrupted file")
+            return false
         }
     }
 }
