@@ -16,14 +16,14 @@ A secure command-line utility for macOS that stores environment files in the sys
 ### Using Homebrew (Recommended)
 
 ```bash
-brew tap thieso2/envpocket
-brew install envpocket
+brew install thieso2/envpocket
 ```
 
-Or install directly without adding the tap:
+Or if you prefer to tap first:
 
 ```bash
-brew install thieso2/envpocket/envpocket
+brew tap thieso2/envpocket https://github.com/thieso2/EnvPocket
+brew install envpocket
 ```
 
 ### Using the Installation Script
@@ -236,9 +236,9 @@ EnvPocket/
         └── EnvPocketTests.swift
 ```
 
-## Related Projects
+## Homebrew Formula
 
-- **Homebrew Tap**: [homebrew-envpocket](https://github.com/thieso2/homebrew-envpocket) - Official Homebrew formula for easy installation
+This repository includes a Homebrew formula in the `Formula` directory for easy installation via Homebrew.
 
 ## Contributing
 
