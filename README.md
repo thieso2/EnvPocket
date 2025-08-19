@@ -167,6 +167,16 @@ envpocket get backup-.env.production .env.production
 - **No Network Access**: All operations are local to your machine
 - **Password Protection**: Keychain may require authentication based on your security settings
 
+### Note: Keychain Isolation
+
+envpocket implements strict namespace isolation to ensure it only touches its own keychain entries:
+
+- **Mandatory Prefix System**: All entries are prefixed with `envpocket:` (current) or `envpocket-history:` (versions)
+- **Filtered Operations**: List operations only process entries with envpocket prefixes, ignoring all other keychain items
+- **Exact Matching**: All keychain operations (read/write/delete) use exact account matching with prefixed keys - no wildcard queries at the keychain API level
+
+This design guarantees that envpocket cannot access or modify any keychain entries created by other applications.
+
 ## Technical Details
 
 ### Storage Structure
