@@ -38,17 +38,17 @@ jobs:
         #!/bin/bash
         set -e
         
-        echo "Installing EnvPocket..."
+        echo "Installing envpocket..."
         
         # Download the latest release
-        DOWNLOAD_URL="https://github.com/thieso2/EnvPocket/releases/latest/download/envpocket-macos.tar.gz"
+        DOWNLOAD_URL="https://github.com/thieso2/envpocket/releases/latest/download/envpocket-macos.tar.gz"
         
         # Create temp directory
         TEMP_DIR=$(mktemp -d)
         trap "rm -rf $TEMP_DIR" EXIT
         
         # Download and extract
-        echo "Downloading EnvPocket..."
+        echo "Downloading envpocket..."
         curl -sL "$DOWNLOAD_URL" -o "$TEMP_DIR/envpocket.tar.gz"
         tar -xzf "$TEMP_DIR/envpocket.tar.gz" -C "$TEMP_DIR"
         
@@ -57,7 +57,7 @@ jobs:
         sudo mv "$TEMP_DIR/envpocket" /usr/local/bin/
         sudo chmod +x /usr/local/bin/envpocket
         
-        echo "EnvPocket installed successfully!"
+        echo "envpocket installed successfully!"
         echo "Run 'envpocket' to get started."
         EOF
         chmod +x install.sh
@@ -88,7 +88,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ steps.version.outputs.version }}
-        name: EnvPocket ${{ steps.version.outputs.version }}
+        name: envpocket ${{ steps.version.outputs.version }}
         draft: false
         prerelease: false
         generate_release_notes: true
@@ -102,7 +102,7 @@ jobs:
           
           ### Using curl:
           ```bash
-          curl -sSL https://github.com/thieso2/EnvPocket/releases/latest/download/install.sh | bash
+          curl -sSL https://github.com/thieso2/envpocket/releases/latest/download/install.sh | bash
           ```
           
           ### Manual installation:

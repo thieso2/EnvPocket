@@ -16,20 +16,20 @@ A secure command-line utility for macOS that stores environment files in the sys
 ### Using Homebrew (Recommended)
 
 ```bash
-brew tap thieso2/envpocket https://github.com/thieso2/EnvPocket
-brew install envpocket
+brew install thieso2/envpocket
 ```
 
-Or install directly with the full formula path:
+Or if you prefer to tap first:
 
 ```bash
-brew install thieso2/envpocket/envpocket
+brew tap thieso2/envpocket
+brew install envpocket
 ```
 
 ### Using the Installation Script
 
 ```bash
-curl -sSL https://github.com/thieso2/EnvPocket/releases/latest/download/install.sh | bash
+curl -sSL https://github.com/thieso2/envpocket/releases/latest/download/install.sh | bash
 ```
 
 ### Building from Source
@@ -42,8 +42,8 @@ curl -sSL https://github.com/thieso2/EnvPocket/releases/latest/download/install.
 
 ```bash
 # Clone the repository
-git clone https://github.com/thieso2/EnvPocket.git
-cd EnvPocket
+git clone https://github.com/thieso2/envpocket.git
+cd envpocket
 
 # Build the release version
 swift build -c release
@@ -226,7 +226,7 @@ swift build
 ### Project Structure
 
 ```
-EnvPocket/
+envpocket/
 ├── Package.swift           # Swift Package Manager manifest
 ├── Sources/
 │   └── EnvPocket/
