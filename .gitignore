@@ -1,0 +1,27 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+Package.resolved
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Build artifacts
+envpocket
+/envpocket
+
+# IDE
+.vscode/
+.idea/
+
+# Test artifacts
+*.xcresult
+
+# Temporary files
+*.tmp
+temp/
+tmp/
