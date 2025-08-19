@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# EnvPocket Installation Script
+# envpocket Installation Script
 
 set -e
 
-echo "Installing EnvPocket..."
+echo "Installing envpocket..."
 
 # Build in release mode
 echo "Building release version..."
@@ -24,7 +24,7 @@ fi
 
 # Verify installation
 if command -v envpocket &> /dev/null; then
-    echo "✅ EnvPocket installed successfully!"
+    echo "✅ envpocket installed successfully!"
     echo "Run 'envpocket' to see usage information."
 else
     echo "⚠️  Installation completed but 'envpocket' command not found in PATH."

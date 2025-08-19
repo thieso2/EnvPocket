@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-EnvPocket is a macOS command-line utility that securely stores environment files in the system keychain. It provides versioning support and maintains a complete history of all stored files.
+envpocket is a macOS command-line utility that securely stores environment files in the system keychain. It provides versioning support and maintains a complete history of all stored files.
 
 ## Build and Development Commands
 

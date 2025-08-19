@@ -1,4 +1,4 @@
-# EnvPocket
+# envpocket
 
 A secure command-line utility for macOS that stores environment files in the system keychain with automatic versioning and history management.
 
@@ -29,7 +29,7 @@ brew install envpocket
 ### Using the Installation Script
 
 ```bash
-curl -sSL https://github.com/thieso2/envpocket/releases/latest/download/install.sh | bash
+curl -sSL https://github.com/thieso2/homebrew-envpocket/releases/latest/download/install.sh | bash
 ```
 
 ### Building from Source
@@ -42,8 +42,8 @@ curl -sSL https://github.com/thieso2/envpocket/releases/latest/download/install.
 
 ```bash
 # Clone the repository
-git clone https://github.com/thieso2/envpocket.git
-cd envpocket
+git clone https://github.com/thieso2/homebrew-envpocket.git
+cd homebrew-envpocket
 
 # Build the release version
 swift build -c release
@@ -161,7 +161,7 @@ envpocket get backup-.env.production .env.production
 
 ## Security Considerations
 
-- **Keychain Access**: EnvPocket requires keychain access permissions on first use
+- **Keychain Access**: envpocket requires keychain access permissions on first use
 - **User-Specific**: Stored items are only accessible by the current user
 - **Encrypted Storage**: Data is encrypted by macOS Keychain Services
 - **No Network Access**: All operations are local to your machine
@@ -226,7 +226,7 @@ swift build
 ### Project Structure
 
 ```
-envpocket/
+homebrew-envpocket/
 ├── Package.swift           # Swift Package Manager manifest
 ├── Sources/
 │   └── EnvPocket/

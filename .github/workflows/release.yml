@@ -41,7 +41,7 @@ jobs:
         echo "Installing envpocket..."
         
         # Download the latest release
-        DOWNLOAD_URL="https://github.com/thieso2/envpocket/releases/latest/download/envpocket-macos.tar.gz"
+        DOWNLOAD_URL="https://github.com/thieso2/homebrew-envpocket/releases/latest/download/envpocket-macos.tar.gz"
         
         # Create temp directory
         TEMP_DIR=$(mktemp -d)
@@ -102,7 +102,7 @@ jobs:
           
           ### Using curl:
           ```bash
-          curl -sSL https://github.com/thieso2/envpocket/releases/latest/download/install.sh | bash
+          curl -sSL https://github.com/thieso2/homebrew-envpocket/releases/latest/download/install.sh | bash
           ```
           
           ### Manual installation:
