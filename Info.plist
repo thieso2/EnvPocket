@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.yourcompany.envpocket</string>
+    
+    <key>CFBundleName</key>
+    <string>envpocket</string>
+    
+    <key>CFBundleVersion</key>
+    <string>1.0.0</string>
+    
+    <key>CFBundleShortVersionString</key>
+    <string>1.0.0</string>
+    
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2025. All rights reserved.</string>
+    
+    <!-- Security and Privacy -->
+    <key>NSAppleEventsUsageDescription</key>
+    <string>envpocket does not use Apple Events.</string>
+    
+    <!-- Declare that we only access the keychain -->
+    <key>NSKeychainUsageDescription</key>
+    <string>envpocket stores environment files securely in your keychain.</string>
+</dict>
+</plist>
