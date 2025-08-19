@@ -120,7 +120,12 @@ envpocket delete myapp-prod
 Export an encrypted version of your environment file:
 
 ```bash
+# With password on command line
 envpocket export myapp-prod --password "shared-team-secret"
+
+# With interactive password prompt (recommended for security)
+envpocket export myapp-prod
+# You'll be prompted to enter and confirm the password
 ```
 
 This creates `myapp-prod.envpocket` that can be safely shared via Git, Slack, email, etc.
@@ -130,7 +135,12 @@ This creates `myapp-prod.envpocket` that can be safely shared via Git, Slack, em
 Import an encrypted environment file shared by a team member:
 
 ```bash
+# With password on command line
 envpocket import myapp-prod myapp-prod.envpocket --password "shared-team-secret"
+
+# With interactive password prompt (recommended for security)
+envpocket import myapp-prod myapp-prod.envpocket
+# You'll be prompted to enter the password
 ```
 
 ## Examples

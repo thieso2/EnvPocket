@@ -32,6 +32,29 @@ enum Command: String {
     case save, get, delete, list, history, export, `import`
 }
 
+func readPassword(prompt: String) -> String? {
+    print(prompt, terminator: "")
+    
+    // Disable echo for password input
+    var oldTermios = termios()
+    tcgetattr(STDIN_FILENO, &oldTermios)
+    var newTermios = oldTermios
+    newTermios.c_lflag &= ~UInt(ECHO)
+    tcsetattr(STDIN_FILENO, TCSANOW, &newTermios)
+    
+    defer {
+        // Restore terminal settings
+        tcsetattr(STDIN_FILENO, TCSANOW, &oldTermios)
+        print() // New line after password input
+    }
+    
+    guard let password = readLine() else {
+        return nil
+    }
+    
+    return password.isEmpty ? nil : password
+}
+
 func usage() {
     print("""
     Usage:
@@ -42,15 +65,17 @@ func usage() {
       envpocket delete <pattern> [-f]
       envpocket list
       envpocket history <key>
-      envpocket export <key> --password <password> [<output_file>]
-      envpocket import <key> <encrypted_file> --password <password>
+      envpocket export <key> [--password <password>] [<output_file>]
+      envpocket import <key> <encrypted_file> [--password <password>]
     
     Notes:
       - For 'delete': supports wildcards (* and ?). Use -f to skip confirmation
       - For 'get': if output_file is omitted, uses the original filename
       - Use '-' as output_file to write to stdout
       - For 'export': creates an encrypted file that can be shared with team members
+                      If password is omitted, you'll be prompted (with confirmation)
       - For 'import': decrypts and imports a file previously exported with 'export'
+                      If password is omitted, you'll be prompted
     """)
 }
 
@@ -135,12 +160,63 @@ func main() {
         envPocket.showHistory(key: args[2])
         
     case .export:
-        if args.count == 5 && args[3] == "--password" {
-            // Export with default output: envpocket export <key> --password <password>
-            guard let encryptedData = envPocket.exportEncrypted(key: args[2], password: args[4]) else {
+        guard args.count >= 3 else { usage(); exit(1) }
+        
+        let key = args[2]
+        var password: String? = nil
+        var outputFile: String? = nil
+        
+        // Parse arguments
+        if args.count == 3 {
+            // envpocket export <key>
+            outputFile = "\(key).envpocket"
+        } else if args.count == 4 {
+            // envpocket export <key> <output_file>
+            outputFile = args[3]
+        } else if args.count == 5 && args[3] == "--password" {
+            // envpocket export <key> --password <password>
+            password = args[4]
+            outputFile = "\(key).envpocket"
+        } else if args.count == 6 && args[3] == "--password" {
+            // envpocket export <key> --password <password> <output_file>
+            password = args[4]
+            outputFile = args[5]
+        } else {
+            usage()
+            exit(1)
+        }
+        
+        // Get password if not provided
+        if password == nil {
+            guard let firstPassword = readPassword(prompt: "Enter password for encryption: ") else {
+                print("Error: Password is required")
                 exit(1)
             }
-            let outputFile = "\(args[2]).envpocket"
+            
+            guard let confirmPassword = readPassword(prompt: "Confirm password: ") else {
+                print("Error: Password confirmation is required")
+                exit(1)
+            }
+            
+            if firstPassword != confirmPassword {
+                print("Error: Passwords do not match")
+                exit(1)
+            }
+            
+            password = firstPassword
+        }
+        
+        // Export with the password
+        guard let finalPassword = password,
+              let encryptedData = envPocket.exportEncrypted(key: key, password: finalPassword) else {
+            exit(1)
+        }
+        
+        // Write to output
+        if outputFile == "-" {
+            // Write to stdout
+            FileHandle.standardOutput.write(encryptedData)
+        } else if let outputFile = outputFile {
             do {
                 try encryptedData.write(to: URL(fileURLWithPath: outputFile))
                 print("Encrypted file exported to '\(outputFile)'")
@@ -149,46 +225,46 @@ func main() {
                 print("Error writing encrypted file: \(error)")
                 exit(1)
             }
-        } else if args.count == 6 && args[3] == "--password" {
-            // Export with specified output: envpocket export <key> --password <password> <output_file>
-            guard let encryptedData = envPocket.exportEncrypted(key: args[2], password: args[4]) else {
-                exit(1)
-            }
-            let outputFile = args[5]
-            if outputFile == "-" {
-                // Write to stdout
-                FileHandle.standardOutput.write(encryptedData)
-            } else {
-                do {
-                    try encryptedData.write(to: URL(fileURLWithPath: outputFile))
-                    print("Encrypted file exported to '\(outputFile)'")
-                    print("Share this file and password with your team to grant access")
-                } catch {
-                    print("Error writing encrypted file: \(error)")
-                    exit(1)
-                }
-            }
-        } else {
-            usage()
-            exit(1)
         }
         
     case .import:
-        guard args.count == 6 && args[4] == "--password" else {
+        guard args.count >= 4 else {
             usage()
             exit(1)
         }
         
         let key = args[2]
         let filePath = args[3]
-        let password = args[5]
+        var password: String? = nil
+        
+        // Parse password argument if provided
+        if args.count == 6 && args[4] == "--password" {
+            password = args[5]
+        } else if args.count != 4 {
+            usage()
+            exit(1)
+        }
+        
+        // Get password if not provided
+        if password == nil {
+            guard let inputPassword = readPassword(prompt: "Enter password for decryption: ") else {
+                print("Error: Password is required")
+                exit(1)
+            }
+            password = inputPassword
+        }
         
         guard let encryptedData = try? Data(contentsOf: URL(fileURLWithPath: filePath)) else {
             print("Error: Could not read encrypted file at \(filePath)")
             exit(1)
         }
         
-        if !envPocket.importEncrypted(key: key, encryptedData: encryptedData, password: password) {
+        guard let finalPassword = password else {
+            print("Error: Password is required")
+            exit(1)
+        }
+        
+        if !envPocket.importEncrypted(key: key, encryptedData: encryptedData, password: finalPassword) {
             exit(1)
         }
     }
