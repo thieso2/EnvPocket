@@ -9,10 +9,10 @@ final class EnvPocketTests {
     let testPrefix = "test-\(UUID().uuidString.prefix(8))"
     var testKey: String { "\(testPrefix)-env-file" }
     let testContent = "TEST_VAR=value\nANOTHER_VAR=secret123\n"
-    let testFilePath = FileManager.default.temporaryDirectory.appendingPathComponent("test.env").path
+    var testFilePath: String { FileManager.default.temporaryDirectory.appendingPathComponent("test-\(testPrefix).env").path }
     
     init() throws {
-        // Create test file
+        // Create test file with unique name for this test instance
         try testContent.write(toFile: testFilePath, atomically: true, encoding: .utf8)
     }
     

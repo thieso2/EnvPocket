@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: macos-14
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: '15.2'
+    
+    - name: Build Release Binary
+      run: |
+        swift build -c release
+        cp .build/release/envpocket ./envpocket
+        
+    - name: Create Installation Script
+      run: |
+        cat << 'EOF' > install.sh
+        #!/bin/bash
+        set -e
+        
+        echo "Installing EnvPocket..."
+        
+        # Download the latest release
+        DOWNLOAD_URL="https://github.com/thieso2/EnvPocket/releases/latest/download/envpocket-macos.tar.gz"
+        
+        # Create temp directory
+        TEMP_DIR=$(mktemp -d)
+        trap "rm -rf $TEMP_DIR" EXIT
+        
+        # Download and extract
+        echo "Downloading EnvPocket..."
+        curl -sL "$DOWNLOAD_URL" -o "$TEMP_DIR/envpocket.tar.gz"
+        tar -xzf "$TEMP_DIR/envpocket.tar.gz" -C "$TEMP_DIR"
+        
+        # Install to /usr/local/bin
+        echo "Installing to /usr/local/bin..."
+        sudo mv "$TEMP_DIR/envpocket" /usr/local/bin/
+        sudo chmod +x /usr/local/bin/envpocket
+        
+        echo "EnvPocket installed successfully!"
+        echo "Run 'envpocket' to get started."
+        EOF
+        chmod +x install.sh
+        
+    - name: Create Archives
+      run: |
+        # Create tar.gz for macOS
+        tar -czf envpocket-macos.tar.gz envpocket
+        
+        # Create zip for macOS
+        zip envpocket-macos.zip envpocket
+        
+        # Calculate checksums
+        shasum -a 256 envpocket-macos.tar.gz > checksums.txt
+        shasum -a 256 envpocket-macos.zip >> checksums.txt
+        
+    - name: Determine version
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="${{ github.ref_name }}"
+        fi
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: EnvPocket ${{ steps.version.outputs.version }}
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        files: |
+          envpocket-macos.tar.gz
+          envpocket-macos.zip
+          checksums.txt
+          install.sh
+        body: |
+          ## Installation
+          
+          ### Using curl:
+          ```bash
+          curl -sSL https://github.com/thieso2/EnvPocket/releases/latest/download/install.sh | bash
+          ```
+          
+          ### Manual installation:
+          1. Download `envpocket-macos.tar.gz` or `envpocket-macos.zip`
+          2. Extract the archive
+          3. Move `envpocket` to `/usr/local/bin/`
+          4. Make it executable: `chmod +x /usr/local/bin/envpocket`
+          
+          ## Checksums
+          See `checksums.txt` for SHA-256 checksums of the release archives.
