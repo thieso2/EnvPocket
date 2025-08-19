@@ -177,6 +177,17 @@ envpocket implements strict namespace isolation to ensure it only touches its ow
 
 This design guarantees that envpocket cannot access or modify any keychain entries created by other applications.
 
+### Advanced Security Hardening
+
+For enhanced security features including code signing, notarization, and Hardened Runtime, see the [`hardening` branch](https://github.com/thieso2/homebrew-envpocket/tree/hardening). This branch includes:
+
+- Entitlements configuration for runtime restrictions
+- Code signing and notarization scripts  
+- Keychain access group support
+- Comprehensive security documentation
+
+These features require an Apple Developer account but provide additional security for production deployments.
+
 ## Technical Details
 
 ### Storage Structure
