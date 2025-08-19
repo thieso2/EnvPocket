@@ -3,7 +3,7 @@
 //  EnvPocketTests
 //
 //  Created by thieso2 on 2024.
-//  Copyright © 2024 thieso2. All rights reserved.
+//  Copyright © 2025 thieso2. All rights reserved.
 //
 //  MIT License
 //
