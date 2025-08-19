@@ -236,6 +236,10 @@ EnvPocket/
         └── EnvPocketTests.swift
 ```
 
+## Related Projects
+
+- **Homebrew Tap**: [homebrew-envpocket](https://github.com/thieso2/homebrew-envpocket) - Official Homebrew formula for easy installation
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
