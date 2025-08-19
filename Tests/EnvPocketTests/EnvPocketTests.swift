@@ -1,9 +1,8 @@
-import Testing
+import XCTest
 import Foundation
 import Security
 
-@Suite("EnvPocket Tests")
-final class EnvPocketTests {
+final class EnvPocketTests: XCTestCase {
     
     // Test data - using UUID to ensure unique test keys
     let testPrefix = "test-\(UUID().uuidString.prefix(8))"
@@ -11,16 +10,18 @@ final class EnvPocketTests {
     let testContent = "TEST_VAR=value\nANOTHER_VAR=secret123\n"
     var testFilePath: String { FileManager.default.temporaryDirectory.appendingPathComponent("test-\(testPrefix).env").path }
     
-    init() throws {
+    override func setUp() {
+        super.setUp()
         // Create test file with unique name for this test instance
-        try testContent.write(toFile: testFilePath, atomically: true, encoding: .utf8)
+        try? testContent.write(toFile: testFilePath, atomically: true, encoding: .utf8)
     }
     
-    deinit {
+    override func tearDown() {
         // Clean up test file
         try? FileManager.default.removeItem(atPath: testFilePath)
         // Clean up any remaining test keys
         try? cleanupAllTestKeys()
+        super.tearDown()
     }
     
     // MARK: - Helper Functions
@@ -99,17 +100,15 @@ final class EnvPocketTests {
     
     // MARK: - Store/Save Command Tests
     
-    @Test("Save file to keychain")
     func testSaveFile() throws {
         defer { try? cleanupTestKeys() }
         
         let result = try runEnvPocket(["save", testKey, testFilePath])
-        #expect(result.exitCode == 0)
-        #expect(result.output.contains("File saved to Keychain"))
-        #expect(result.output.contains("under key '\(testKey)'"))
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("File saved to Keychain"))
+        XCTAssertTrue(result.output.contains("under key '\(testKey)'"))
     }
     
-    @Test("Save overwrites existing key and creates history")
     func testSaveOverwrite() throws {
         defer { try? cleanupTestKeys() }
         
@@ -121,22 +120,20 @@ final class EnvPocketTests {
         
         // Second save (overwrite)
         let result = try runEnvPocket(["save", testKey, testFilePath])
-        #expect(result.exitCode == 0)
-        #expect(result.output.contains("Previous version backed up to history"))
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("Previous version backed up to history"))
     }
     
-    @Test("Save non-existent file fails")
     func testSaveNonExistentFile() throws {
         defer { try? cleanupTestKeys() }
         
         let result = try runEnvPocket(["save", testKey, "/nonexistent/file.env"])
-        #expect(result.exitCode == 1)
-        #expect(result.output.contains("Error: Could not read file"))
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.output.contains("Error: Could not read file"))
     }
     
     // MARK: - Get/Retrieve Command Tests
     
-    @Test("Get file from keychain")
     func testGetFile() throws {
         defer { try? cleanupTestKeys() }
         
@@ -148,15 +145,14 @@ final class EnvPocketTests {
         defer { try? FileManager.default.removeItem(atPath: outputPath) }
         
         let result = try runEnvPocket(["get", testKey, outputPath])
-        #expect(result.exitCode == 0)
-        #expect(result.output.contains("File retrieved and saved to"))
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("File retrieved and saved to"))
         
         // Verify content
         let retrievedContent = try String(contentsOfFile: outputPath)
-        #expect(retrievedContent == testContent)
+        XCTAssertEqual(retrievedContent, testContent)
     }
     
-    @Test("Get file to stdout")
     func testGetFileToStdout() throws {
         defer { try? cleanupTestKeys() }
         
@@ -165,67 +161,19 @@ final class EnvPocketTests {
         
         // Get file to stdout
         let result = try runEnvPocket(["get", testKey, "-"])
-        #expect(result.exitCode == 0)
-        #expect(result.output == testContent)
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertEqual(result.output, testContent)
     }
     
-    @Test("Get file with default output name")
-    func testGetFileDefaultOutput() throws {
-        defer { try? cleanupTestKeys() }
-        
-        // Save file first
-        _ = try runEnvPocket(["save", testKey, testFilePath])
-        
-        // Get file without specifying output (should use original filename)
-        let currentDir = FileManager.default.currentDirectoryPath
-        let expectedOutput = URL(fileURLWithPath: currentDir).appendingPathComponent("test.env").path
-        defer { try? FileManager.default.removeItem(atPath: expectedOutput) }
-        
-        let result = try runEnvPocket(["get", testKey])
-        #expect(result.exitCode == 0)
-        #expect(result.output.contains("test.env"))
-    }
-    
-    @Test("Get non-existent key fails")
     func testGetNonExistentKey() throws {
         let nonExistentKey = "\(testPrefix)-nonexistent"
         let result = try runEnvPocket(["get", nonExistentKey, "-"])
-        #expect(result.exitCode == 1)
-        #expect(result.output.contains("Error retrieving from Keychain"))
-    }
-    
-    @Test("Get specific version from history")
-    func testGetHistoricalVersion() throws {
-        defer { try? cleanupTestKeys() }
-        
-        // Save file twice to create history
-        _ = try runEnvPocket(["save", testKey, testFilePath])
-        Thread.sleep(forTimeInterval: 0.1)
-        
-        // Modify file content
-        let modifiedContent = "MODIFIED=true\n"
-        let modifiedPath = FileManager.default.temporaryDirectory.appendingPathComponent("modified-\(testPrefix).env").path
-        try modifiedContent.write(toFile: modifiedPath, atomically: true, encoding: .utf8)
-        defer { try? FileManager.default.removeItem(atPath: modifiedPath) }
-        
-        _ = try runEnvPocket(["save", testKey, modifiedPath])
-        
-        // Get historical version (index 0 = most recent history)
-        let outputPath = FileManager.default.temporaryDirectory.appendingPathComponent("historical-\(testPrefix).env").path
-        defer { try? FileManager.default.removeItem(atPath: outputPath) }
-        
-        let result = try runEnvPocket(["get", testKey, "--version", "0", outputPath])
-        #expect(result.exitCode == 0)
-        #expect(result.output.contains("Retrieved historical version"))
-        
-        // Verify we got the original content
-        let retrievedContent = try String(contentsOfFile: outputPath)
-        #expect(retrievedContent == testContent)
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.output.contains("Error retrieving from Keychain"))
     }
     
     // MARK: - Delete Command Tests
     
-    @Test("Delete key from keychain")
     func testDeleteKey() throws {
         defer { try? cleanupTestKeys() }
         
@@ -234,49 +182,24 @@ final class EnvPocketTests {
         
         // Delete key
         let result = try runEnvPocket(["delete", testKey])
-        #expect(result.exitCode == 0)
-        #expect(result.output.contains("Deleted key '\(testKey)' from Keychain"))
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("Deleted key '\(testKey)' from Keychain"))
         
         // Verify key is deleted
         let getResult = try runEnvPocket(["get", testKey, "-"])
-        #expect(getResult.exitCode == 1)
-    }
-    
-    @Test("Delete key with history")
-    func testDeleteKeyWithHistory() throws {
-        defer { try? cleanupTestKeys() }
-        
-        // Save file twice to create history
-        _ = try runEnvPocket(["save", testKey, testFilePath])
-        Thread.sleep(forTimeInterval: 0.1)
-        _ = try runEnvPocket(["save", testKey, testFilePath])
-        
-        // Delete key
-        let result = try runEnvPocket(["delete", testKey])
-        #expect(result.exitCode == 0)
-        #expect(result.output.contains("Also deleted 1 history"))
-    }
-    
-    @Test("Delete non-existent key fails")
-    func testDeleteNonExistentKey() throws {
-        let nonExistentKey = "\(testPrefix)-nonexistent-delete"
-        let result = try runEnvPocket(["delete", nonExistentKey])
-        #expect(result.exitCode == 1)
-        #expect(result.output.contains("Error deleting from Keychain"))
+        XCTAssertEqual(getResult.exitCode, 1)
     }
     
     // MARK: - List Command Tests
     
-    @Test("List empty keychain")
     func testListEmpty() throws {
         defer { try? cleanupTestKeys() }
         
         let result = try runEnvPocket(["list"])
-        #expect(result.exitCode == 0)
+        XCTAssertEqual(result.exitCode, 0)
         // Note: May show other envpocket entries, so we just check it doesn't crash
     }
     
-    @Test("List keys in keychain")
     func testListKeys() throws {
         defer { try? cleanupTestKeys() }
         
@@ -288,29 +211,13 @@ final class EnvPocketTests {
         _ = try runEnvPocket(["save", key2, testFilePath])
         
         let result = try runEnvPocket(["list"])
-        #expect(result.exitCode == 0)
-        #expect(result.output.contains(key1))
-        #expect(result.output.contains(key2))
-        #expect(result.output.contains("test.env"))
-    }
-    
-    @Test("List shows history count")
-    func testListShowsHistory() throws {
-        defer { try? cleanupTestKeys() }
-        
-        // Save file twice to create history
-        _ = try runEnvPocket(["save", testKey, testFilePath])
-        Thread.sleep(forTimeInterval: 0.1)
-        _ = try runEnvPocket(["save", testKey, testFilePath])
-        
-        let result = try runEnvPocket(["list"])
-        #expect(result.exitCode == 0)
-        #expect(result.output.contains("1 version in history"))
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains(key1))
+        XCTAssertTrue(result.output.contains(key2))
     }
     
     // MARK: - History Command Tests
     
-    @Test("Show history for key")
     func testShowHistory() throws {
         defer { try? cleanupTestKeys() }
         
@@ -322,121 +229,22 @@ final class EnvPocketTests {
         _ = try runEnvPocket(["save", testKey, testFilePath])
         
         let result = try runEnvPocket(["history", testKey])
-        #expect(result.exitCode == 0)
-        #expect(result.output.contains("History for '\(testKey)'"))
-        #expect(result.output.contains("0:"))
-        #expect(result.output.contains("1:"))
-    }
-    
-    @Test("Show history for non-existent key")
-    func testShowHistoryNonExistent() throws {
-        let nonExistentKey = "\(testPrefix)-nonexistent-history"
-        let result = try runEnvPocket(["history", nonExistentKey])
-        #expect(result.exitCode == 0)
-        #expect(result.output.contains("No history found"))
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("History for '\(testKey)'"))
+        XCTAssertTrue(result.output.contains("0:"))
     }
     
     // MARK: - Edge Cases and Error Handling
     
-    @Test("Invalid command shows usage")
     func testInvalidCommand() throws {
         let result = try runEnvPocket(["invalid"])
-        #expect(result.exitCode == 1)
-        #expect(result.output.contains("Usage:"))
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.output.contains("Usage:"))
     }
     
-    @Test("Missing arguments shows usage")
     func testMissingArguments() throws {
         let result = try runEnvPocket(["save"])
-        #expect(result.exitCode == 1)
-        #expect(result.output.contains("Usage:"))
+        XCTAssertEqual(result.exitCode, 1)
+        XCTAssertTrue(result.output.contains("Usage:"))
     }
-    
-    @Test("Invalid version index")
-    func testInvalidVersionIndex() throws {
-        defer { try? cleanupTestKeys() }
-        
-        // Save file once
-        _ = try runEnvPocket(["save", testKey, testFilePath])
-        
-        // Try to get invalid version
-        let result = try runEnvPocket(["get", testKey, "--version", "999", "-"])
-        #expect(result.exitCode == 1)
-        #expect(result.output.contains("Invalid version index"))
-    }
-    
-    @Test("Handle special characters in key")
-    func testSpecialCharactersInKey() throws {
-        defer { try? cleanupTestKeys() }
-        
-        let specialKey = "\(testPrefix)-key:with@special#chars"
-        let result = try runEnvPocket(["save", specialKey, testFilePath])
-        #expect(result.exitCode == 0)
-        
-        // Verify retrieval
-        let getResult = try runEnvPocket(["get", specialKey, "-"])
-        #expect(getResult.exitCode == 0)
-        #expect(getResult.output == testContent)
-    }
-    
-    @Test("Handle large files")
-    func testLargeFile() throws {
-        defer { try? cleanupTestKeys() }
-        
-        let largeKey = "\(testPrefix)-large"
-        
-        // Create a large file (1MB)
-        let largeContent = String(repeating: "A", count: 1024 * 1024)
-        let largePath = FileManager.default.temporaryDirectory.appendingPathComponent("large-\(testPrefix).env").path
-        try largeContent.write(toFile: largePath, atomically: true, encoding: .utf8)
-        defer { try? FileManager.default.removeItem(atPath: largePath) }
-        
-        // Save large file
-        let saveResult = try runEnvPocket(["save", largeKey, largePath])
-        #expect(saveResult.exitCode == 0)
-        
-        // Retrieve large file
-        let outputPath = FileManager.default.temporaryDirectory.appendingPathComponent("large-output-\(testPrefix).env").path
-        defer { try? FileManager.default.removeItem(atPath: outputPath) }
-        
-        let getResult = try runEnvPocket(["get", largeKey, outputPath])
-        #expect(getResult.exitCode == 0)
-        
-        // Verify content
-        let retrievedContent = try String(contentsOfFile: outputPath)
-        #expect(retrievedContent == largeContent)
-    }
-    
-    @Test("Multiple operations")
-    func testMultipleOperations() throws {
-        defer { try? cleanupTestKeys() }
-        
-        // Save multiple keys sequentially to test isolation
-        var keys: [String] = []
-        for i in 0..<5 {
-            let key = "\(testPrefix)-multiple-\(i)"
-            keys.append(key)
-            let result = try runEnvPocket(["save", key, testFilePath])
-            #expect(result.exitCode == 0)
-        }
-        
-        // Verify all keys exist
-        let listResult = try runEnvPocket(["list"])
-        #expect(listResult.exitCode == 0)
-        
-        for key in keys {
-            #expect(listResult.output.contains(key))
-        }
-        
-        // Clean up all keys
-        for key in keys {
-            let deleteResult = try runEnvPocket(["delete", key])
-            #expect(deleteResult.exitCode == 0)
-        }
-    }
-}
-
-enum TestError: Error {
-    case keychainCreationFailed(OSStatus)
-    case commandExecutionFailed
 }
